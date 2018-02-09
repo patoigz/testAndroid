@@ -15,13 +15,12 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 
 public class HttpHandler {
-
     private static final String TAG = HttpHandler.class.getSimpleName();
 
-    public String makeServiceCall(String reqUrl) {
+    public String makeServiceCall(String requestUrl) {
         String response = null;
         try {
-            URL url = new URL(reqUrl);
+            URL url = new URL(requestUrl);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
             InputStream in = new BufferedInputStream(conn.getInputStream());
@@ -32,8 +31,8 @@ public class HttpHandler {
         return response;
     }
 
-    private String convertStreamToString(InputStream is) {
-        BufferedReader reader = new BufferedReader(new InputStreamReader(is));
+    private String convertStreamToString(InputStream inputStream) {
+        BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
         StringBuilder stringBuilder = new StringBuilder();
 
         String line;
@@ -42,12 +41,12 @@ public class HttpHandler {
                 stringBuilder.append(line).append('\n');
             }
         } catch (IOException ex) {
-            ex.printStackTrace();
+            Log.e(TAG, "Exception: " + ex.getMessage());
         } finally {
             try {
-                is.close();
+                inputStream.close();
             } catch (IOException ex) {
-                ex.printStackTrace();
+                Log.e(TAG, "Exception: " + ex.getMessage());
             }
         }
         return stringBuilder.toString();

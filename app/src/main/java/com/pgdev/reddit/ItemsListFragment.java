@@ -15,8 +15,10 @@ import android.widget.ListView;
 
 import com.pgdev.reddit.adapter.ItemAdapter;
 import com.pgdev.reddit.model.Item;
-import com.pgdev.reddit.util.Constants;
 import com.pgdev.reddit.util.HttpHandler;
+import com.pgdev.reddit.util.Util;
+
+import org.json.JSONObject;
 
 import java.util.ArrayList;
 
@@ -27,22 +29,33 @@ import java.util.ArrayList;
 public class ItemsListFragment extends Fragment {
     private static final String TAG = ItemsListFragment.class.getSimpleName();
 
+    public interface OnItemSelectedListener {
+        void onItemSelected(Item item);
+
+        void dismissItem(Item item);
+    }
+
     private ProgressDialog pDialog;
     private ListView listView;
     private SwipeRefreshLayout mSwipeRefreshLayout;
+    private ArrayAdapter<Item> adapterItems;
+    private ArrayList<Item> items = null;
+    private int MIN = 0;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
-        new getTopFromReddit().execute();
     }
 
     private void populateAdapter() {
-        ArrayList<Item> entryItems = new ArrayList<>();
-        entryItems.add(new Item("title", "author", 2, "thumbnail", 1));
-        ArrayAdapter<Item> adapterItems = new ItemAdapter(getActivity(), entryItems);
+        if (items == null) return;
 
+        int value = Math.min((MIN + getResources().getInteger(R.integer.entries)), items.size());
+        adapterItems = new ItemAdapter(getActivity(), new ArrayList<>(items.subList(MIN, value)));
+        MIN += getResources().getInteger(R.integer.entries);
+        if (MIN >= items.size()) {
+            MIN = 0;
+        }
         listView.setAdapter(adapterItems);
     }
 
@@ -52,6 +65,7 @@ public class ItemsListFragment extends Fragment {
 
         mSwipeRefreshLayout = (SwipeRefreshLayout) view.findViewById(R.id.swipe_refresh_layout);
         listView = (ListView) view.findViewById(R.id.list_view);
+        listView.setChoiceMode(ListView.CHOICE_MODE_SINGLE);
         mSwipeRefreshLayout.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
             @Override
             public void onRefresh() {
@@ -59,7 +73,9 @@ public class ItemsListFragment extends Fragment {
             }
         });
 
-        populateAdapter();
+        if (items == null) {
+            new getTopFromReddit().execute();
+        }
         return view;
     }
 
@@ -72,11 +88,6 @@ public class ItemsListFragment extends Fragment {
             }
         }, 2000);
     }
-
-    public void setActivateOnItemClick(boolean activateOnItemClick) {
-        listView.setChoiceMode(activateOnItemClick ? ListView.CHOICE_MODE_SINGLE : ListView.CHOICE_MODE_NONE);
-    }
-
 
     private class getTopFromReddit extends AsyncTask<Void, Void, Boolean> {
 
@@ -93,11 +104,14 @@ public class ItemsListFragment extends Fragment {
         @Override
         protected Boolean doInBackground(Void... arg0) {
             HttpHandler httpHandler = new HttpHandler();
-            String jsonStr = httpHandler.makeServiceCall(Constants.URL);
+            String jsonStr = httpHandler.makeServiceCall(getString(R.string.url));
             try {
                 if (jsonStr != null) {
-                    Log.i(TAG, jsonStr.toString());
+                    JSONObject jsonObj = new JSONObject(jsonStr);
 
+                    Log.i(TAG, jsonStr.substring(0, 100));
+
+                    items = Util.parseJson(getActivity(), jsonObj);
                     return true;
                 }
             } catch (Exception ex) {
@@ -113,6 +127,20 @@ public class ItemsListFragment extends Fragment {
             if (pDialog.isShowing()) {
                 pDialog.dismiss();
             }
+            if (result) {
+                populateAdapter();
+            }
         }
+    }
+
+    public void removeItem(Item item) {
+        adapterItems.remove(item);
+        adapterItems.notifyDataSetChanged();
+    }
+
+    public void removeAll() {
+        adapterItems = new ItemAdapter(getActivity(), new ArrayList<Item>());
+        listView.setAdapter(adapterItems);
+        adapterItems.notifyDataSetChanged();
     }
 }
